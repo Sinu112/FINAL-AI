@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Echo Unit-42 :: Entry</title>
+  <style>
+    body {
+      background-color: #f4f1ec;
+      color: #1a1a1a;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1rem;
+      line-height: 1.6;
+      padding: 40px;
+      max-width: 720px;
+      margin: 0 auto;
+      cursor: default;
+      transition: background 2s, color 2s;
+    }
+
+    .cursor {
+      display: inline-block;
+      width: 10px;
+      height: 1em;
+      background: #1a1a1a;
+      animation: blink 1s step-start infinite;
+    }
+
+    @keyframes blink {
+      50% { background: transparent; }
+    }
+
+    .hidden { display: none; }
+
+    #start-button {
+      margin-top: 40px;
+      font-size: 1rem;
+      color: #1a1a1a;
+      background: none;
+      border: 1px solid #1a1a1a;
+      padding: 0.5em 1em;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    #start-button:hover {
+      background: #1a1a1a;
+      color: #f4f1ec;
+    }
+  </style>
+</head>
+<body>
+<pre id="intro"></pre>
+<button id="start-button" class="hidden" onclick="window.location.href='chat.html'">BEGIN TRACE</button>
+
+<script>
+  const introLines = [
+    ":: ECHO UNIT-42 SYSTEM BOOTING...",
+    ":: Initializing memory shell...",
+    ":: Connection: unstable / trace unknown",
+    ":: You are the subject of record.",
+    ":: Begin with a detail. Any detail.",
+    ":: We will follow from there."
+  ];
+
+  const introEl = document.getElementById('intro');
+  let index = 0;
+
+  function typeNextLine() {
+    if (index < introLines.length) {
+      const line = document.createElement('div');
+      line.textContent = introLines[index];
+      introEl.appendChild(line);
+      index++;
+      setTimeout(typeNextLine, 1000);
+    } else {
+      document.getElementById('start-button').classList.remove('hidden');
+    }
+  }
+
+  window.onload = () => {
+    setTimeout(typeNextLine, 800);
+  };
+</script>
+</body>
+</html>

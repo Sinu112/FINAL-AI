@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Echo Unit-42 :: Chat</title>
+    <style>
+        body {
+            background: #f4f1ec;
+            color: #1a1a1a;
+            font-family: 'JetBrains Mono', monospace;
+            margin: 0;
+            padding: 2em;
+            transition: background 2s, color 2s;
+        }
+        body.phase1 { background: #f4f1ec; color: #1a1a1a; }
+        body.phase2 { background: #e2e0d7; color: #222; }
+        body.phase3 { background: #2c2c2c; color: #cccccc; }
+        body.phase4 { background: #0f0f0f; color: #dddddd; }
+        body.ending { background: #f4f1ec; color: #1a1a1a; animation: fadeIn 2s ease-in-out; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .log {
+            white-space: pre-wrap;
+            line-height: 1.5;
+            max-width: 700px;
+            margin: 0 auto 2em;
+            position: relative;
+        }
+        .input-line {
+            display: flex;
+            justify-content: center;
+            margin-top: 2em;
+        }
+        input[type="text"] {
+            background: none;
+            border: none;
+            border-bottom: 1px solid #666;
+            color: inherit;
+            font-family: inherit;
+            font-size: 1em;
+            width: 70%;
+            outline: none;
+        }
+        .whisper {
+            position: absolute;
+            right: 10px;
+            bottom: 10px;
+            font-size: 0.75em;
+            color: rgba(0, 0, 0, 0.1);
+            font-style: italic;
+            pointer-events: none;
+        }
+        #nextButton {
+            display: none;
+            margin: 1em auto;
+            text-align: center;
+            font-size: 0.9em;
+            padding: 0.5em 1em;
+            background: #222;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="phase1">
+<div class="log" id="chatLog"></div>
+<div class="input-line">
+    <input type="text" id="userInput" placeholder="type and press enter..." />
+</div>
+<button id="nextButton">next</button>
+<div class="whisper" id="whisper">[ echo trace unstable... collecting ]</div>
+<video id="snapshot" autoplay playsinline width="120" height="90" style="display:none;"></video>
+<canvas id="captureCanvas" width="120" height="90" style="display:none;"></canvas>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+    const log = document.getElementById('chatLog');
+    const input = document.getElementById('userInput');
+    const whisper = document.getElementById('whisper');
+    const nextButton = document.getElementById('nextButton');
+    const video = document.getElementById('snapshot');
+    const canvas = document.getElementById('captureCanvas');
+    const ctx = canvas.getContext('2d');
+
+    let phase = 1;
+    let turn = 0;
+    let startTime = null;
+    let behaviorLog = [];
+    let previousInputs = new Set();
+    let confirmSentence = null;
+    let confirmingPhase = false;
+    let snapshotTaken = false;
+
+    const confirmations = {
+        1: "I consent to revisit the scene.",
+        2: "I am ready to go deeper.",
+        3: "Let the memory replay.",
+        4: "Let me see it all."
+    };
+
+    const prompts = {
+        1: ["Describe a time the light felt wrong.", "What’s the first sound you remember from then?"],
+        2: ["Someone's watching. Who is it?", "There’s a pattern in the noise. Describe it."],
+        3: ["If you had a photo of that moment, what would blur first?", "Tell me something that wasn't there, but should have been."],
+        4: ["Let me reflect that moment back to you.", "Which part did you make up?"]
+    };
+
+    function updateBodyClass() {
+        document.body.className = `phase${phase}`;
+    }
+
+    function printLine(text, role = 'system') {
+        const prefix = role === 'user' ? '> ' : ':: ';
+        const line = document.createElement('div');
+        line.innerText = prefix + text;
+        log.appendChild(line);
+        log.scrollTop = log.scrollHeight;
+    }
+
+    async function printTypewriter(lines) {
+        document.body.className = 'ending';
+        for (const line of lines) {
+            const div = document.createElement('div');
+            log.appendChild(div);
+            for (let i = 0; i <= line.length; i++) {
+                div.innerText = ':: ' + line.slice(0, i);
+                await new Promise(r => setTimeout(r, 40));
+            }
+            log.appendChild(document.createElement('br'));
+        }
+    }
+
+    function processUserResponse(text) {
+        printLine(text, 'user');
+        const delay = ((Date.now() - startTime) / 1000).toFixed(1);
+        const words = text.split(/\s+/).length;
+        const duplicate = previousInputs.has(text);
+        previousInputs.add(text);
+        behaviorLog.push({ phase, turn, text, delay });
+        turn++;
+        if (duplicate) printLine("You're repeating yourself again.");
+        else if (words <= 3) printLine("That was short. You're hiding something.");
+        else if (delay > 10) printLine("You took your time. Thinking too much?");
+        else printLine("Noted.");
+        whisper.innerText = `[ entry ${turn} — ${words} words / ${delay}s delay ]`;
+    }
+
+    function nextPrompt() {
+        const list = prompts[phase];
+        if (turn < list.length) {
+            printLine(list[turn]);
+            startTime = Date.now();
+        } else if (confirmations[phase]) {
+            confirmSentence = confirmations[phase];
+            confirmingPhase = true;
+            setTimeout(() => {
+                printLine(`To continue, type exactly: "${confirmSentence}"`);
+                input.placeholder = confirmSentence;
+            }, 1000);
+        }
+    }
+
+    input.addEventListener('input', () => {
+        if (confirmingPhase && confirmSentence) {
+            if (!confirmSentence.startsWith(input.value)) {
+                input.value = input.value.slice(0, -1);
+            }
+        }
+    });
+
+    input.addEventListener('keydown', async (e) => {
+        if (e.key === 'Enter') {
+            const text = input.value.trim();
+            if (!text || input.disabled) return;
+
+            if (confirmingPhase && text === confirmSentence) {
+                processUserResponse(text);
+                if (phase === 4) {
+                    confirmingPhase = false;
+                    input.disabled = true;
+                    document.querySelector('.input-line').style.display = 'none';
+                    await printTypewriter([
+                        ":: Recalling... recalling... re//ca//lling",
+                        ":: [[ Memory synthesis in progress ]]",
+                        ":: Generating echo from behavioral trace...",
+                        ":: Your trace is complete. Downloading..."
+                    ]);
+                    setTimeout(() => generatePDF(), 2000);
+                    return;
+                } else {
+                    confirmingPhase = false;
+                    input.value = '';
+                    input.placeholder = 'type and press enter...';
+                    document.querySelector('.input-line').style.display = 'none';
+                    nextButton.style.display = 'block';
+                    return;
+                }
+            }
+
+            if (confirmingPhase && text !== confirmSentence) return;
+            processUserResponse(text);
+            input.value = '';
+            setTimeout(() => nextPrompt(), 800);
+        }
+    });
+
+    nextButton.addEventListener('click', () => {
+        nextButton.style.display = 'none';
+        document.querySelector('.input-line').style.display = 'flex';
+        turn = 0;
+        phase++;
+        updateBodyClass();
+        nextPrompt();
+    });
+
+    function generatePDF() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        doc.setFont('Courier', 'normal');
+        doc.setFontSize(12);
+        doc.setDrawColor(200);
+        doc.setFillColor(244, 241, 236);
+        doc.rect(0, 0, 210, 297, 'F');
+        doc.text(":: ECHO UNIT TRACE REPORT ::", 10, 10);
+
+        let y = 20;
+        behaviorLog.forEach((entry, i) => {
+            doc.text(`${i + 1}. Phase ${entry.phase}, Delay: ${entry.delay}s`, 10, y);
+            y += 6;
+        });
+
+        const totalDelay = behaviorLog.reduce((sum, e) => sum + parseFloat(e.delay), 0);
+        const avgDelay = totalDelay / behaviorLog.length;
+        let tag = "FLOWING";
+        let explanation = "User responded fluidly and with minimal hesitation.";
+        if (avgDelay > 7) {
+            tag = "HESITATOR";
+            explanation = "User paused frequently before replying.";
+        } else if (behaviorLog.filter(e => e.text === behaviorLog[0]?.text).length > 2) {
+            tag = "REPETITIVE";
+            explanation = "Multiple inputs were repeated nearly verbatim.";
+        }
+        doc.setFontSize(14);
+        doc.text(`TAG: ${tag}`, 10, y + 10);
+        doc.setFontSize(10);
+        doc.text(explanation, 10, y + 16, { maxWidth: 190 });
+
+        if (snapshotTaken) {
+            const img = canvas.toDataURL('image/jpeg');
+            doc.addImage(img, 'JPEG', 150, 10, 40, 30);
+        }
+
+        doc.save("echo_report.pdf");
+    }
+
+    window.onload = () => {
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+                video.srcObject = stream;
+                setTimeout(() => {
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    snapshotTaken = true;
+                }, 3000);
+            });
+        printLine(":: Echo initialized. Listening...");
+        setTimeout(() => nextPrompt(), 1000);
+    };
+</script>
+</body>
+</html>
