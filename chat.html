@@ -104,10 +104,33 @@
     };
 
     const prompts = {
-        1: ["Describe a time the light felt wrong.", "What’s the first sound you remember from then?"],
-        2: ["Someone's watching. Who is it?", "There’s a pattern in the noise. Describe it."],
-        3: ["If you had a photo of that moment, what would blur first?", "Tell me something that wasn't there, but should have been."],
-        4: ["Let me reflect that moment back to you.", "Which part did you make up?"]
+        1: [
+            "Describe a time the light felt wrong.",
+            "What’s the first sound you remember from then?",
+            "Was it morning or night?",
+            "What name did you hear?"
+        ],
+        2: [
+            "Someone's watching. Who is it?",
+            "Something is gone. What was it?",
+            "There’s a pattern in the noise. Describe it."
+        ],
+        3: [
+            "If you had a photo of that moment, what would blur first?",
+            "Has anything about the memory changed while speaking?",
+            "Tell me something that wasn't there, but should have been."
+        ],
+        4: [
+            "Let me reflect that moment back to you.",
+            "You said that too quickly. What are you leaving out?",
+            "Which part did you make up?",
+            "Was that what really happened?",
+            "If we reversed your words, what would remain true?",
+            "Now say it again, but slower.",
+            "Would your answer be the same if no one else were watching?",
+            "Why do you think you remember this at all?",
+            "Reconstruct it from scratch. Begin."
+        ]
     };
 
     function updateBodyClass() {
