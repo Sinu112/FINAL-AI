@@ -241,6 +241,31 @@
         nextPrompt();
     });
 
+    function determinePersonaTags(log) {
+        let tags = new Set();
+        let avgTime = 0;
+        let totalWords = 0;
+        let repeats = 0;
+        let fragments = 0;
+
+        log.forEach(entry => {
+            avgTime += parseFloat(entry.delay);
+            totalWords += entry.words;
+            if (entry.duplicate) repeats++;
+            if (entry.words <= 3) fragments++;
+        });
+
+        avgTime /= log.length;
+        const avgWords = totalWords / log.length;
+
+        if (repeats > 1) tags.add("The Repeater");
+        if (avgTime > 10) tags.add("The Overthinker");
+        if (avgWords <= 3) tags.add("The Drifter");
+        if (fragments >= 2) tags.add("The Fragment");
+
+        return Array.from(tags);
+    }
+
     function generatePDF() {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
@@ -257,21 +282,21 @@
             y += 6;
         });
 
-        const totalDelay = behaviorLog.reduce((sum, e) => sum + parseFloat(e.delay), 0);
-        const avgDelay = totalDelay / behaviorLog.length;
-        let tag = "FLOWING";
-        let explanation = "User responded fluidly and with minimal hesitation.";
-        if (avgDelay > 7) {
-            tag = "HESITATOR";
-            explanation = "User paused frequently before replying.";
-        } else if (behaviorLog.filter(e => e.text === behaviorLog[0]?.text).length > 2) {
-            tag = "REPETITIVE";
-            explanation = "Multiple inputs were repeated nearly verbatim.";
-        }
+        const tags = determinePersonaTags(behaviorLog);
+        const tagDescriptions = {
+            "The Repeater": "Pattern fixation detected. Tendency to loop responses.",
+            "The Overthinker": "Extended delay. Indicates reflective or restrained response.",
+            "The Drifter": "Minimalist or evasive. Short entries may indicate avoidance.",
+            "The Fragment": "Syntax instability. Fragmented expression observed."
+        };
+
         doc.setFontSize(14);
-        doc.text(`TAG: ${tag}`, 10, y + 10);
+        doc.text(`TAGS:`, 10, y + 10);
         doc.setFontSize(10);
-        doc.text(explanation, 10, y + 16, { maxWidth: 190 });
+
+        tags.forEach((tag, i) => {
+            doc.text(`- ${tag}: ${tagDescriptions[tag] || "Unclassified behavior"}`, 10, y + 16 + i * 8, { maxWidth: 180 });
+        });
 
         if (snapshotTaken) {
             const img = canvas.toDataURL('image/jpeg');
@@ -296,3 +321,4 @@
 </script>
 </body>
 </html>
+
